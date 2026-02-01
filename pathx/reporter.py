@@ -2,7 +2,7 @@ import os
 import sys
 from typing import List, Dict
 
-from .scanner import Finding, ScanResult
+from .scanner import Finding, ScanResult, FindingType
 
 
 class Colors:
@@ -72,30 +72,64 @@ def print_results(result: ScanResult, directory: str):
     print("\u2501" * 50)
 
     if not result.findings:
-        print(f"\n{Colors.GREEN}\u2713 No hardcoded paths found{Colors.RESET}\n")
+        print(f"\n{Colors.GREEN}\u2713 No hardcoded paths or missing files found{Colors.RESET}\n")
     else:
-        # Group findings by file
-        by_file: Dict[str, List[Finding]] = {}
-        for finding in result.findings:
-            if finding.file_path not in by_file:
-                by_file[finding.file_path] = []
-            by_file[finding.file_path].append(finding)
+        # Separate findings by type
+        hardcoded_findings = [f for f in result.findings if f.finding_type == FindingType.HARDCODED_ABSOLUTE]
+        missing_findings = [f for f in result.findings if f.finding_type == FindingType.MISSING_RELATIVE]
 
-        # Print each file's findings
-        for file_path, findings in sorted(by_file.items()):
-            rel_path = os.path.relpath(file_path, directory)
-            print(f"\n{Colors.BOLD}{rel_path}{Colors.RESET}")
+        # Print hardcoded paths section
+        if hardcoded_findings:
+            print(f"\n{Colors.BOLD}{Colors.RED}Hardcoded Absolute Paths:{Colors.RESET}")
+            print("-" * 40)
 
-            for f in sorted(findings, key=lambda x: x.line_number):
-                link_text = f"  Line {f.line_number}"
-                link = make_hyperlink(f.file_path, f.line_number, link_text)
-                # Highlight the matched path within the line content
-                highlighted_line = f.line_content.replace(
-                    f.matched_path,
-                    f"{Colors.RED}{f.matched_path}{Colors.RESET}",
-                    1  # Replace only first occurrence
-                )
-                print(f"{link}: {highlighted_line.strip()}")
+            # Group by file
+            by_file: Dict[str, List[Finding]] = {}
+            for finding in hardcoded_findings:
+                if finding.file_path not in by_file:
+                    by_file[finding.file_path] = []
+                by_file[finding.file_path].append(finding)
+
+            for file_path, findings in sorted(by_file.items()):
+                rel_path = os.path.relpath(file_path, directory)
+                print(f"\n{Colors.BOLD}{rel_path}{Colors.RESET}")
+
+                for f in sorted(findings, key=lambda x: x.line_number):
+                    link_text = f"  Line {f.line_number}"
+                    link = make_hyperlink(f.file_path, f.line_number, link_text)
+                    highlighted_line = f.line_content.replace(
+                        f.matched_path,
+                        f"{Colors.RED}{f.matched_path}{Colors.RESET}",
+                        1
+                    )
+                    print(f"{link}: {highlighted_line.strip()}")
+
+        # Print missing paths section
+        if missing_findings:
+            print(f"\n{Colors.BOLD}{Colors.YELLOW}Missing Relative Paths:{Colors.RESET}")
+            print("-" * 40)
+
+            # Group by file
+            by_file: Dict[str, List[Finding]] = {}
+            for finding in missing_findings:
+                if finding.file_path not in by_file:
+                    by_file[finding.file_path] = []
+                by_file[finding.file_path].append(finding)
+
+            for file_path, findings in sorted(by_file.items()):
+                rel_path = os.path.relpath(file_path, directory)
+                print(f"\n{Colors.BOLD}{rel_path}{Colors.RESET}")
+
+                for f in sorted(findings, key=lambda x: x.line_number):
+                    link_text = f"  Line {f.line_number}"
+                    link = make_hyperlink(f.file_path, f.line_number, link_text)
+                    highlighted_line = f.line_content.replace(
+                        f.matched_path,
+                        f"{Colors.YELLOW}{f.matched_path}{Colors.RESET}",
+                        1
+                    )
+                    print(f"{link}: {highlighted_line.strip()}")
+                    print(f"       {Colors.CYAN}^ File not found{Colors.RESET}")
 
     # Summary
     print("\n" + "\u2501" * 50)
@@ -104,8 +138,14 @@ def print_results(result: ScanResult, directory: str):
 
     if result.findings:
         files_with_issues = len(set(f.file_path for f in result.findings))
+        hardcoded_count = len([f for f in result.findings if f.finding_type == FindingType.HARDCODED_ABSOLUTE])
+        missing_count = result.missing_paths
+
         print(f"  Files with issues: {Colors.YELLOW}{files_with_issues}{Colors.RESET}")
-        print(f"  Total hardcoded paths: {Colors.RED}{len(result.findings)}{Colors.RESET}")
+        if hardcoded_count > 0:
+            print(f"  Hardcoded paths: {Colors.RED}{hardcoded_count}{Colors.RESET}")
+        if missing_count > 0:
+            print(f"  Missing relative paths: {Colors.YELLOW}{missing_count}{Colors.RESET}")
 
     # Skip warnings
     if result.files_skipped_encoding > 0:

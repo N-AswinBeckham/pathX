@@ -1,5 +1,5 @@
 __version__ = "0.1.0"
 __author__ = "PathX Contributors"
 
-from .scanner import scan_directory
-from .patterns import ALL_PATTERNS
+from .scanner import scan_directory, Finding, ScanResult, FindingType
+from .patterns import ALL_PATTERNS, ALL_RELATIVE_PATTERNS

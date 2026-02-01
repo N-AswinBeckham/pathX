@@ -45,6 +45,18 @@ def parse_args(args=None):
         version=f'%(prog)s {__version__}'
     )
 
+    parser.add_argument(
+        '--no-missing-check',
+        action='store_true',
+        help='Disable checking for missing relative paths'
+    )
+
+    parser.add_argument(
+        '--only-missing',
+        action='store_true',
+        help='Only check for missing relative paths (skip hardcoded path detection)'
+    )
+
     return parser.parse_args(args)
 
 
@@ -66,6 +78,7 @@ def main(args=None):
         excludes=excludes,
         max_file_size=parsed.max_size,
         progress_callback=print_progress,
+        check_relative_paths=not parsed.no_missing_check,
     )
 
     # Print results
